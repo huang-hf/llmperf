@@ -69,7 +69,7 @@ class OpenAIChatCompletionsClient(LLMClient):
                 address,
                 json=body,
                 stream=True,
-                timeout=180,
+                timeout=1800,
                 headers=headers,
             ) as response:
                 if response.status_code != 200:
@@ -119,7 +119,8 @@ class OpenAIChatCompletionsClient(LLMClient):
             print(f"Warning Or Error: {stack_trace}")
             print(error_response_code)
 
-        metrics[common_metrics.INTER_TOKEN_LAT] = sum(time_to_next_token) #This should be same as metrics[common_metrics.E2E_LAT]. Leave it here for now
+        # metrics[common_metrics.INTER_TOKEN_LAT] = sum(time_to_next_token) #This should be same as metrics[common_metrics.E2E_LAT]. Leave it here for now
+        metrics[common_metrics.INTER_TOKEN_LAT] = sum(time_to_next_token) / len(time_to_next_token)
         metrics[common_metrics.TTFT] = ttft
         metrics[common_metrics.E2E_LAT] = total_request_time
         metrics[common_metrics.REQ_OUTPUT_THROUGHPUT] = output_throughput
