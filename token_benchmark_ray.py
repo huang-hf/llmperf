@@ -24,7 +24,10 @@ from llmperf.utils import (
 )
 from tqdm import tqdm
 
-from transformers import LlamaTokenizerFast
+# from transformers import LlamaTokenizerFast
+from llmperf.token_counter import count_tokens, init_token_counter
+
+init_token_counter()
 
 def get_token_throughput_latencies(
     model: str,
@@ -37,6 +40,7 @@ def get_token_throughput_latencies(
     max_num_completed_requests: int = 500,
     test_timeout_s=90,
     llm_api="openai",
+    provider=None
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     """Get the token throughput and latencies for the given model.
 
@@ -60,10 +64,15 @@ def get_token_throughput_latencies(
     """
     random.seed(11111)
 
-    tokenizer = LlamaTokenizerFast.from_pretrained(
-        "hf-internal-testing/llama-tokenizer"
-    )
-    get_token_length = lambda text: len(tokenizer.encode(text))
+    # tokenizer = LlamaTokenizerFast.from_pretrained(
+    #     "hf-internal-testing/llama-tokenizer"
+    # )
+    import tiktoken
+    tokenizer = tiktoken.get_encoding("cl100k_base")
+    # get_token_length = lambda text: len(tokenizer.encode(text))
+    def get_token_length(text: str) -> int:
+        return count_tokens([{"role": "assistant", "content": text}])
+
     
     if not additional_sampling_params:
         additional_sampling_params = {}
@@ -107,6 +116,7 @@ def get_token_throughput_latencies(
                 prompt=prompts[request_index],
                 sampling_params=default_sampling_params,
                 llm_api=llm_api,
+                provider=provider
             )
             req_launcher.launch_requests(request_config)
 
@@ -292,6 +302,7 @@ def run_token_benchmark(
     additional_sampling_params: str,
     results_dir: str,
     user_metadata: Dict[str, Any],
+    provider: str = None
 ):
     """
     Args:
@@ -327,6 +338,7 @@ def run_token_benchmark(
         stddev_output_tokens=stddev_output_tokens,
         num_concurrent_requests=num_concurrent_requests,
         additional_sampling_params=json.loads(additional_sampling_params),
+        provider=provider
     )
 
     if results_dir:
@@ -462,6 +474,15 @@ args.add_argument(
         "name=foo,bar=1. These will be added to the metadata field of the results. "
     ),
 )
+args.add_argument(
+    "--provider",
+    type=str,
+    default=None,
+    help=(
+        "The provider to use. Can select from {SUPPORTED_PROVIDERS}. "
+        " (default: %(default)s)"
+    ),
+)
 
 if __name__ == "__main__":
     env_vars = dict(os.environ)
@@ -488,4 +509,5 @@ if __name__ == "__main__":
         additional_sampling_params=args.additional_sampling_params,
         results_dir=args.results_dir,
         user_metadata=user_metadata,
+        provider=args.provider,
     )

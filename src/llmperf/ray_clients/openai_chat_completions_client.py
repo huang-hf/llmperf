@@ -29,6 +29,10 @@ class OpenAIChatCompletionsClient(LLMClient):
             "messages": message,
             "stream": True,
         }
+
+        if request_config.provider is not None:
+            body["provider"] = request_config.provider
+
         sampling_params = request_config.sampling_params
         body.update(sampling_params or {})
         time_to_next_token = []
@@ -59,6 +63,7 @@ class OpenAIChatCompletionsClient(LLMClient):
         if not address.endswith("/"):
             address = address + "/"
         address += "chat/completions"
+        print("body: ", body)
         try:
             with requests.post(
                 address,
@@ -80,8 +85,11 @@ class OpenAIChatCompletionsClient(LLMClient):
                     chunk = chunk[len(stem) :]
                     if chunk == b"[DONE]":
                         continue
-                    tokens_received += 1
-                    data = json.loads(chunk)
+                    try:
+                        data = json.loads(chunk)
+                    except Exception as e:
+                        print("not json format chunk: ", chunk)
+                        continue
 
                     if "error" in data:
                         error_msg = data["error"]["message"]
@@ -106,7 +114,9 @@ class OpenAIChatCompletionsClient(LLMClient):
         except Exception as e:
             metrics[common_metrics.ERROR_MSG] = error_msg
             metrics[common_metrics.ERROR_CODE] = error_response_code
-            print(f"Warning Or Error: {e}")
+            import traceback
+            stack_trace = traceback.format_exc()
+            print(f"Warning Or Error: {stack_trace}")
             print(error_response_code)
 
         metrics[common_metrics.INTER_TOKEN_LAT] = sum(time_to_next_token) #This should be same as metrics[common_metrics.E2E_LAT]. Leave it here for now
