@@ -9,6 +9,7 @@ import requests
 from llmperf.ray_llm_client import LLMClient
 from llmperf.models import RequestConfig
 from llmperf import common_metrics
+from llmperf.token_counter import count_tokens
 
 
 @ray.remote
@@ -74,6 +75,7 @@ class OpenAIChatCompletionsClient(LLMClient):
             ) as response:
                 if response.status_code != 200:
                     error_msg = response.text
+                    print("error_msg: ", error_msg)
                     error_response_code = response.status_code
                     response.raise_for_status()
                 for chunk in response.iter_lines(chunk_size=None):
@@ -107,9 +109,10 @@ class OpenAIChatCompletionsClient(LLMClient):
                         else:
                             time_to_next_token.append(time.monotonic() - most_recent_received_token_time)
                         most_recent_received_token_time = time.monotonic()
-                        generated_text += delta["content"]
+                        generated_text += content
 
             total_request_time = time.monotonic() - start_time
+            tokens_received = count_tokens([{"role": "assistant", "content": generated_text}])
             output_throughput = tokens_received / total_request_time
 
         except Exception as e:
