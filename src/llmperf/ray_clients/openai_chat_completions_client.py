@@ -95,16 +95,17 @@ class OpenAIChatCompletionsClient(LLMClient):
                         error_msg = data["error"]["message"]
                         error_response_code = data["error"]["code"]
                         raise RuntimeError(data["error"]["message"])
-                        
+
                     delta = data["choices"][0]["delta"]
-                    if delta.get("content", None):
+                    content = delta.get("content", None)
+                    if not content:
+                        content = delta.get("reasoning_content", None)
+                    if content:
                         if not ttft:
                             ttft = time.monotonic() - start_time
                             time_to_next_token.append(ttft)
                         else:
-                            time_to_next_token.append(
-                                time.monotonic() - most_recent_received_token_time
-                            )
+                            time_to_next_token.append(time.monotonic() - most_recent_received_token_time)
                         most_recent_received_token_time = time.monotonic()
                         generated_text += delta["content"]
 
@@ -115,9 +116,13 @@ class OpenAIChatCompletionsClient(LLMClient):
             metrics[common_metrics.ERROR_MSG] = error_msg
             metrics[common_metrics.ERROR_CODE] = error_response_code
             import traceback
+
             stack_trace = traceback.format_exc()
             print(f"Warning Or Error: {stack_trace}")
             print(error_response_code)
+
+        if len(time_to_next_token) == 0:
+            print("Warning: No tokens received.")
 
         # metrics[common_metrics.INTER_TOKEN_LAT] = sum(time_to_next_token) #This should be same as metrics[common_metrics.E2E_LAT]. Leave it here for now
         metrics[common_metrics.INTER_TOKEN_LAT] = sum(time_to_next_token) / len(time_to_next_token)
