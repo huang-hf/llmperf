@@ -9,6 +9,7 @@ import requests
 from llmperf.ray_llm_client import LLMClient
 from llmperf.models import RequestConfig
 from llmperf import common_metrics
+from llmperf.token_counter import count_tokens
 
 
 @ray.remote
@@ -74,6 +75,7 @@ class OpenAIChatCompletionsClient(LLMClient):
             ) as response:
                 if response.status_code != 200:
                     error_msg = response.text
+                    print("error_msg: ", error_msg)
                     error_response_code = response.status_code
                     response.raise_for_status()
                 for chunk in response.iter_lines(chunk_size=None):
@@ -95,29 +97,35 @@ class OpenAIChatCompletionsClient(LLMClient):
                         error_msg = data["error"]["message"]
                         error_response_code = data["error"]["code"]
                         raise RuntimeError(data["error"]["message"])
-                        
+
                     delta = data["choices"][0]["delta"]
-                    if delta.get("content", None):
+                    content = delta.get("content", None)
+                    if not content:
+                        content = delta.get("reasoning_content", None)
+                    if content:
                         if not ttft:
                             ttft = time.monotonic() - start_time
                             time_to_next_token.append(ttft)
                         else:
-                            time_to_next_token.append(
-                                time.monotonic() - most_recent_received_token_time
-                            )
+                            time_to_next_token.append(time.monotonic() - most_recent_received_token_time)
                         most_recent_received_token_time = time.monotonic()
-                        generated_text += delta["content"]
+                        generated_text += content
 
             total_request_time = time.monotonic() - start_time
+            tokens_received = count_tokens([{"role": "assistant", "content": generated_text}])
             output_throughput = tokens_received / total_request_time
 
         except Exception as e:
             metrics[common_metrics.ERROR_MSG] = error_msg
             metrics[common_metrics.ERROR_CODE] = error_response_code
             import traceback
+
             stack_trace = traceback.format_exc()
             print(f"Warning Or Error: {stack_trace}")
             print(error_response_code)
+
+        if len(time_to_next_token) == 0:
+            print("Warning: No tokens received.")
 
         # metrics[common_metrics.INTER_TOKEN_LAT] = sum(time_to_next_token) #This should be same as metrics[common_metrics.E2E_LAT]. Leave it here for now
         metrics[common_metrics.INTER_TOKEN_LAT] = sum(time_to_next_token) / len(time_to_next_token)
