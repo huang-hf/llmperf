@@ -52,7 +52,7 @@ class OpenAIChatCompletionsClient(LLMClient):
 
         start_time = time.monotonic()
         most_recent_received_token_time = time.monotonic()
-        address = os.environ.get("OPENAI_API_BASE")
+        address = os.environ.get("OPENAI_API_BASE", "https://api.netmind.ai/inference-api/openai/v1")
         if not address:
             raise ValueError("the environment variable OPENAI_API_BASE must be set.")
         key = os.environ.get("OPENAI_API_KEY")
@@ -126,6 +126,7 @@ class OpenAIChatCompletionsClient(LLMClient):
 
         if len(time_to_next_token) == 0:
             print("Warning: No tokens received.")
+            return
 
         # metrics[common_metrics.INTER_TOKEN_LAT] = sum(time_to_next_token) #This should be same as metrics[common_metrics.E2E_LAT]. Leave it here for now
         metrics[common_metrics.INTER_TOKEN_LAT] = sum(time_to_next_token) / len(time_to_next_token)
