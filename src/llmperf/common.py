@@ -31,8 +31,25 @@ def construct_clients(llm_api: str, num_clients: int) -> List[LLMClient]:
     elif llm_api in SUPPORTED_APIS:
         clients = [LiteLLMClient.remote() for _ in range(num_clients)]
     else:
-        raise ValueError(
-            f"llm_api must be one of the supported LLM APIs: {SUPPORTED_APIS}"
-        )
+        raise ValueError(f"llm_api must be one of the supported LLM APIs: {SUPPORTED_APIS}")
+
+    return clients
+
+
+def construct_local_clients(llm_api: str, num_clients: int) -> List[LLMClient]:
+    """Construct LLMClients that will be used to make requests to the LLM API.
+
+    Args:
+        llm_api: The name of the LLM API to use.
+        num_clients: The number of concurrent requests to make.
+
+    Returns:
+        The constructed LLMCLients
+
+    """
+    if llm_api == "openai":
+        clients = [OpenAIChatCompletionsClient() for _ in range(num_clients)]
+    else:
+        raise ValueError(f"llm_api must be one of the supported LLM APIs: {SUPPORTED_APIS}")
 
     return clients

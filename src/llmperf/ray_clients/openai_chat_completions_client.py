@@ -12,7 +12,7 @@ from llmperf import common_metrics
 from llmperf.token_counter import count_tokens
 
 
-@ray.remote
+# @ray.remote
 class OpenAIChatCompletionsClient(LLMClient):
     """Client for OpenAI Chat Completions API."""
 

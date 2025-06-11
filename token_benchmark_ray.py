@@ -13,7 +13,7 @@ import pandas as pd
 import ray
 
 from llmperf import common_metrics
-from llmperf.common import SUPPORTED_APIS, construct_clients
+from llmperf.common import SUPPORTED_APIS, construct_local_clients
 
 from llmperf.models import RequestConfig
 from llmperf.requests_launcher import RequestsLauncher
@@ -102,8 +102,9 @@ def get_token_throughput_latencies(
 
     def launch_request(thread_index):
         nonlocal num_completed_requests
-        clients = construct_clients(llm_api=llm_api, num_clients=1)
-        req_launcher = RequestsLauncher(clients)
+        clients = construct_local_clients(llm_api=llm_api, num_clients=1)
+        # req_launcher = RequestsLauncher(clients)
+        client = clients[0]
         request_index = thread_index % max_num_completed_requests
 
         while time.monotonic() - start_time < test_timeout_s and num_completed_requests < max_num_completed_requests:
@@ -117,9 +118,10 @@ def get_token_throughput_latencies(
                 llm_api=llm_api,
                 provider=provider,
             )
-            req_launcher.launch_requests(request_config)
-
-            outs = req_launcher.get_next_ready()
+            # req_launcher.launch_requests(request_config)
+            # outs = req_launcher.get_next_ready()
+            outs = client.llm_request(request_config)
+            outs = [outs]
             all_metrics = []
             for out in outs:
                 request_metrics, gen_text, _ = out
@@ -405,7 +407,7 @@ args.add_argument(
 args.add_argument(
     "--num-concurrent-requests",
     type=int,
-    default=10,
+    default=1,
     help=("The number of concurrent requests to send (default: %(default)s)"),
 )
 args.add_argument(
